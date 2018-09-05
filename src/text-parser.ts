@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from "path";
 import * as Asciidoctor from "asciidoctor.js";
+import * as Plantuml from "asciidoctor-plantuml";
 import { spawn } from "child_process";
 import { isNullOrUndefined } from 'util';
 import * as npm_which from "npm-which";
@@ -12,26 +13,33 @@ var which = npm_which(__dirname) // __dirname often good enough
 let previousHtml = null;
 let use_asciidoctor_js = vscode.workspace.getConfiguration('AsciiDoc').get('use_asciidoctor_js');
 const asciidoctor = Asciidoctor();
+Plantuml.register(asciidoctor.Extensions);
 
 
-asciidoctor.Extensions.register(function () {
-    this.block(function () {
+asciidoctor.Extensions.register(function ()
+{
+    this.block(function ()
+    {
         const self = this;
         self.named('graphviz');
         self.onContext('literal');
-        self.process(function (parent, reader, attrs) {
+        self.process(function (parent, reader, attrs)
+        {
             var svg = Viz(reader.getString());
             return self.createBlock(parent, 'pass', svg);
         });
     });
 });
 
-asciidoctor.Extensions.register(function () {
-    this.block(function () {
+asciidoctor.Extensions.register(function ()
+{
+    this.block(function ()
+    {
         const self = this;
         self.named('mermaid');
         self.onContext('literal');
-        self.process(function (parent, reader, attrs) {
+        self.process(function (parent, reader, attrs)
+        {
             const txt = reader.getString();
             const html = `<div class="mermaid">${txt}</div>`
             return self.createBlock(parent, 'pass', html);
@@ -39,24 +47,30 @@ asciidoctor.Extensions.register(function () {
     });
 });
 
-export class AsciiDocParser {
+export class AsciiDocParser
+{
     public html: string = '';
     public document = null;
 
-    constructor(private readonly filename: string, private readonly text: string) {
+    constructor(private readonly filename: string, private readonly text: string)
+    {
     }
 
-    public getAttribute(name: string) {
+    public getAttribute(name: string)
+    {
         return isNullOrUndefined(this.document) ? null : this.document.getAttribute(name);
     }
 
-    public async getMediaDir() {
+    public async getMediaDir()
+    {
         const match = this.text.match(new RegExp("^\\s*:mediadir:"));
         return match;
     }
 
-    private async convert_using_javascript() {
-        return new Promise<string>(resolve => {
+    private async convert_using_javascript()
+    {
+        return new Promise<string>(resolve =>
+        {
             const contains_stylesheet = !isNullOrUndefined(this.text.match(new RegExp("^\\s*:stylesheet:", "img")));
             const documentPath = path.dirname(this.filename);
             const ext_path = vscode.extensions.getExtension('joaompinto.asciidoctor-vscode').extensionPath;
@@ -78,7 +92,8 @@ export class AsciiDocParser {
             let ascii_doc = asciidoctor.load(this.text, options);
             this.document = ascii_doc;
             const blocksWithLineNumber = ascii_doc.findBy(function (b) { return typeof b.getLineNumber() !== 'undefined'; });
-            blocksWithLineNumber.forEach(function (block, key, myArray) {
+            blocksWithLineNumber.forEach(function (block, key, myArray)
+            {
                 block.addRole("data-line-" + block.getLineNumber());
             })
             let resultHTML = ascii_doc.convert(options);
@@ -87,15 +102,18 @@ export class AsciiDocParser {
         })
     }
 
-    private async convert_using_application() {
+    private async convert_using_application()
+    {
         let documentPath = path.dirname(this.filename);
         this.document = null;
 
-        return new Promise<string>(resolve => {
+        return new Promise<string>(resolve =>
+        {
             let asciidoctor_command = vscode.workspace.getConfiguration('AsciiDoc').get('asciidoctor_command', 'asciidoctor');
             var options = { shell: true, cwd: path.dirname(this.filename) }
             var asciidoctor = spawn(asciidoctor_command, ['-q', '-o-', '-', '-B', '\'' + documentPath + '\''], options);
-            asciidoctor.stderr.on('data', (data) => {
+            asciidoctor.stderr.on('data', (data) =>
+            {
                 let errorMessage = data.toString();
                 console.error(errorMessage);
                 errorMessage += errorMessage.replace("\n", '<br><br>');
@@ -106,10 +124,12 @@ export class AsciiDocParser {
             })
             var result_data = ''
             /* with large outputs we can receive multiple calls */
-            asciidoctor.stdout.on('data', (data) => {
+            asciidoctor.stdout.on('data', (data) =>
+            {
                 result_data += data.toString();
             });
-            asciidoctor.on('close', (code) => {
+            asciidoctor.on('close', (code) =>
+            {
                 var result = this.fixLinks(result_data);
                 resolve(result);
             })
@@ -118,10 +138,12 @@ export class AsciiDocParser {
         });
     }
 
-    private fixLinks(html: string): string {
+    private fixLinks(html: string): string
+    {
         let result = html.replace(
             new RegExp("((?:src|href)=[\'\"])(?!(?:http:|https:|ftp:|#))(.*?)([\'\"])", "gmi"),
-            (subString: string, p1: string, p2: string, p3: string): string => {
+            (subString: string, p1: string, p2: string, p3: string): string =>
+            {
                 return [
                     p1,
                     fileUrl(path.join(
@@ -135,7 +157,8 @@ export class AsciiDocParser {
         return result;
     }
 
-    public async parseText(): Promise<string> {
+    public async parseText(): Promise<string>
+    {
         if (use_asciidoctor_js)
             return this.convert_using_javascript()
         else
